@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no" />
+  <title>EMT One-Screen – OCTOPATH-ish HD-2D + Drag Treatment</title>
+  <style>
+    :root{
+      --bg:#070a0c;
+      --border:rgba(255,255,255,0.14);
+      --text:rgba(255,255,255,0.92);
+      --muted:rgba(255,255,255,0.65);
+      --shadow: 0 18px 60px rgba(0,0,0,0.45);
+      --radius:18px;
+      --hudH: 92px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height:100vh;
+      overflow:hidden;
+      touch-action:none;
+    }
+    #wrap{
+      position:relative;
+      width:100vw;height:100vh;
+      background:
+        radial-gradient(1200px 700px at 20% 20%, rgba(90,140,120,0.14), transparent 62%),
+        radial-gradient(900px 600px at 75% 65%, rgba(90,120,150,0.14), transparent 62%),
+        var(--bg);
+    }
+    canvas{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      display:block;
+    }
+
+    /* ======= TOP HUD ======= */
+    .topHUD{
+      position:absolute;
+      top:12px; left:12px;
+      width:min(440px, calc(100vw - 24px));
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      pointer-events:none;
+      transform-origin: top left;
+    }
+    .card{
+      background: rgba(0,0,0,0.35);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      overflow:hidden;
+    }
+    .cardHeader{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,0.10);
+      display:flex;justify-content:space-between;align-items:center;
+      background: rgba(0,0,0,0.25);
+    }
+    .pill{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.14);
+      color: var(--muted);
+      background: rgba(0,0,0,0.25);
+      white-space:nowrap;
+    }
+    .cardBody{ padding:10px 12px; }
+    .kpi{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .kpi b{color:var(--text)}
+    .log{
+      margin-top:10px;
+      max-height:120px;
+      overflow:hidden;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+    .resGrid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:8px;
+      margin-top:8px;
+    }
+    .res{
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding:8px 10px;
+      color: var(--muted);
+      line-height:1.25;
+    }
+    .res b{color:var(--text)}
+    .mini{
+      font-size:12px;color:rgba(255,255,255,0.62);line-height:1.55;
+      white-space:pre-line;
+    }
+
+    /* ======= BOTTOM HUD (Whiteout-ish) ======= */
+    .bottomHUD{
+      position:absolute;
+      left:12px; right:12px;
+      bottom:12px;
+      height: var(--hudH);
+      background: rgba(0,0,0,0.42);
+      border:1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 12px;
+      gap:10px;
+      pointer-events:auto;
+      transform: translateY(0);
+      transition: transform 220ms ease, opacity 220ms ease;
+    }
+    .hudLeft{
+      display:flex;flex-direction:column;gap:6px;
+      min-width: 210px;
+    }
+    .hudLeft .title{
+      font-weight:900; letter-spacing:0.02em;
+      font-size:13px;
+    }
+    .hudLeft .sub{
+      color:rgba(255,255,255,0.65);
+      font-size:12px;
+    }
+    .hudBtns{
+      display:flex; gap:8px; flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .hudBtn{
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius: 16px;
+      cursor:pointer;
+      font-weight:900;
+      letter-spacing:0.01em;
+      min-width: 92px;
+      text-align:center;
+      user-select:none;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+    .hudBtn:hover{ background: rgba(255,255,255,0.12); }
+    .hudBtn:active{ transform: translateY(1px) scale(0.99); }
+    .hudBtn small{
+      display:block;
+      font-weight:800;
+      color:rgba(255,255,255,0.62);
+      margin-top:2px;
+      font-size:11px;
+    }
+
+    .hint{
+      position:absolute;
+      left:12px;
+      bottom: calc(12px + var(--hudH) + 10px);
+      width:min(560px, calc(100vw - 24px));
+      background: rgba(0,0,0,0.30);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      padding:10px 12px;
+      color: var(--muted);
+      pointer-events:none;
+      opacity: 0.95;
+    }
+
+    /* ======= Overlay (Treatment) ======= */
+    .overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:flex-end;
+      justify-content:center;
+      background: rgba(0,0,0,0.38);
+      backdrop-filter: blur(8px);
+      padding:14px;
+      pointer-events:auto;
+    }
+    .overlay.show{ display:flex; }
+    .sheet{
+      width:min(920px, calc(100vw - 16px));
+      background: rgba(12,14,18,0.92);
+      border:1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      transform: translateY(10px);
+      animation: sheetIn 180ms ease-out forwards;
+    }
+    @keyframes sheetIn{
+      to{ transform: translateY(0); }
+    }
+    .sheetTop{
+      padding:12px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      border-bottom:1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.35);
+    }
+    .sheetTitle{
+      margin:0;
+      font-size:14px;
+      letter-spacing:0.02em;
+    }
+    .closeBtn{
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      padding:8px 10px;
+      border-radius: 14px;
+      cursor:pointer;
+      font-weight:900;
+    }
+    .sheetBody{ padding:12px 14px; }
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      align-items:stretch;
+    }
+    @media (max-width:900px){ .row{grid-template-columns:1fr} }
+    .panel{
+      background: rgba(0,0,0,0.28);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius: 18px;
+      padding:12px;
+      color: var(--muted);
+      line-height:1.7;
+      min-height: 240px;
+    }
+    .panel b{color:var(--text)}
+
+    .toolRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:8px;
+    }
+    .tool{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding:10px 10px;
+      user-select:none;
+      cursor:grab;
+      touch-action:none;
+    }
+    .tool:active{ cursor:grabbing; }
+    .tool .icon{font-size:18px}
+    .tool .name{
+      font-weight:900;
+      color:rgba(255,255,255,0.92);
+      font-size:13px;
+    }
+    .tool .desc{
+      font-size:12px;color:rgba(255,255,255,0.62);
+      margin-top:2px;
+    }
+    .dropArea{
+      position:relative;
+      border:1px dashed rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04);
+      border-radius: 18px;
+      padding:12px;
+      min-height: 220px;
+      overflow:hidden;
+      margin-top:10px;
+    }
+    .silhouette{
+      position:absolute;
+      inset:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      opacity:0.95;
+    }
+    .bodyFig{
+      position:relative;
+      width: 220px;
+      height: 180px;
+      border-radius: 30px;
+      border:1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.22);
+    }
+    .head{
+      position:absolute;
+      top:-34px; left:50%;
+      transform: translateX(-50%);
+      width:56px;height:56px;border-radius:999px;
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.22);
+    }
+    .zone{
+      position:absolute;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.12);
+      display:flex;align-items:center;justify-content:center;
+      color: rgba(255,255,255,0.70);
+      font-weight:900;
+      font-size:12px;
+      user-select:none;
+    }
+    .zone.face{ width:80px;height:50px; top:-12px; left:50%; transform:translateX(-50%); }
+    .zone.leg{ width:110px;height:60px; bottom:18px; left:50%; transform:translateX(-50%); }
+    .zone.active{
+      outline: 2px solid rgba(120,255,180,0.55);
+      box-shadow: 0 0 18px rgba(120,255,180,0.25);
+      background: rgba(120,255,180,0.08);
+    }
+    .zone.done{
+      border-color: rgba(120,255,180,0.45);
+      background: rgba(120,255,180,0.10);
+      color: rgba(120,255,180,0.95);
+    }
+
+    .dragToken{
+      position:fixed;
+      z-index:9999;
+      pointer-events:none;
+      transform: translate(-50%, -50%);
+      display:none;
+      background: rgba(0,0,0,0.72);
+      border:1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding:10px 12px;
+      box-shadow: var(--shadow);
+      color: rgba(255,255,255,0.92);
+      font-weight:900;
+      letter-spacing:0.01em;
+      backdrop-filter: blur(10px);
+    }
+
+    /* subtle "film grain" overlay using CSS */
+    .grain{
+      position:absolute; inset:0;
+      pointer-events:none;
+      opacity:0.12;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="c"></canvas>
+    <div class="grain"></div>
+
+    <!-- TOP HUD -->
+    <div class="topHUD">
+      <div class="card">
+        <div class="cardHeader">
+          <div class="pill">EMT / One-Screen</div>
+          <div class="pill" id="scorePill">Score: 0</div>
+        </div>
+        <div class="cardBody">
+          <div class="kpi">
+            <div><b>状態：</b><span id="statusText">出動中</span></div>
+            <div class="pill" id="targetPill">Target: —</div>
+          </div>
+          <div class="resGrid">
+            <div class="res"><b id="resStaff">人員 2</b><div class="mini">隊員</div></div>
+            <div class="res"><b id="resSup">資器材 6</b><div class="mini">包帯/酸素</div></div>
+            <div class="res"><b id="resFuel">燃料 4</b><div class="mini">搬送</div></div>
+          </div>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardHeader">
+          <div class="pill">Mission</div>
+          <div class="pill" id="missionPill">JP_001</div>
+        </div>
+        <div class="cardBody">
+          <div class="mini" id="missionText">
+① 現場へ移動（タップ移動）
+② 患者Aに接近して止血（🩹ドラッグ→LEG）
+③ 患者Aに呼吸支援（🫁ドラッグ→FACE）
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HINT -->
+    <div class="hint">
+      OCTOPATH風：雨/霧/光/擬似DOFを入れて“完成感”を出しています｜タップ移動 → 患者タップ → 処置UI（ドラッグ）
+    </div>
+
+    <!-- BOTTOM HUD -->
+    <div class="bottomHUD" id="bottomHUD">
+      <div class="hudLeft">
+        <div class="title">雨の交差点（HD-2D）</div>
+        <div class="sub">“一画面完成”デモ：演出×操作で仕上げる</div>
+      </div>
+      <div class="hudBtns">
+        <div class="hudBtn" data-hud="build">建設<small>拠点</small></div>
+        <div class="hudBtn" data-hud="dispatch">出動<small>任務</small></div>
+        <div class="hudBtn" data-hud="storage">倉庫<small>資器材</small></div>
+        <div class="hudBtn" data-hud="research">研究<small>手順</small></div>
+      </div>
+    </div>
+
+    <!-- Treatment UI -->
+    <div class="overlay" id="overlay" aria-hidden="true">
+      <div class="sheet" role="dialog" aria-modal="true">
+        <div class="sheetTop">
+          <h3 class="sheetTitle" id="sheetTitle">患者</h3>
+          <button class="closeBtn" id="closeBtn">閉じる</button>
+        </div>
+        <div class="sheetBody">
+          <div class="row">
+            <div class="panel" id="patientPanel"></div>
+
+            <div class="panel">
+              <b>ドラッグ処置</b><br>
+              <span style="color:rgba(255,255,255,0.62);font-size:12px">
+                ツールをドラッグして、対象ゾーンへドロップ。
+              </span>
+
+              <div class="toolRow">
+                <div class="tool" data-tool="bandage">
+                  <div class="icon">🩹</div>
+                  <div>
+                    <div class="name">包帯</div>
+                    <div class="desc">出血：LEGへ</div>
+                  </div>
+                </div>
+
+                <div class="tool" data-tool="mask">
+                  <div class="icon">🫁</div>
+                  <div>
+                    <div class="name">酸素マスク</div>
+                    <div class="desc">呼吸：FACEへ</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dropArea" id="dropArea">
+                <div class="silhouette">
+                  <div class="bodyFig">
+                    <div class="head"></div>
+                    <div class="zone face" id="zoneFace">FACE</div>
+                    <div class="zone leg" id="zoneLeg">LEG</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.55);white-space:pre-line">
+※OCTOPATH風の“完成感”は演出で稼ぐ：雨/霧/光/DOF/微粒子
+次段：歩行アニメを“スプライト歩行”にして更に寄せる
+              </div>
+
+              <button class="closeBtn" id="quickClose" style="margin-top:10px">閉じる</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- drag token -->
+    <div class="dragToken" id="dragToken">🩹</div>
+  </div>
+
+<script>
+(() => {
+  // =========================
+  // Canvas + offscreen (for faux DOF)
+  // =========================
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+
+  // scene buffer
+  const scene = document.createElement("canvas");
+  const sctx = scene.getContext("2d");
+
+  function resize(){
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const w = Math.floor(canvas.clientWidth * dpr);
+    const h = Math.floor(canvas.clientHeight * dpr);
+    canvas.width = w; canvas.height = h;
+    scene.width = w; scene.height = h;
+
+    // draw in CSS px coordinates
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+
+  // =========================
+  // UI
+  // =========================
+  const scorePill = document.getElementById("scorePill");
+  const statusText = document.getElementById("statusText");
+  const targetPill = document.getElementById("targetPill");
+  const missionText = document.getElementById("missionText");
+  const missionPill = document.getElementById("missionPill");
+  const logEl = document.getElementById("log");
+
+  const resStaff = document.getElementById("resStaff");
+  const resSup = document.getElementById("resSup");
+  const resFuel = document.getElementById("resFuel");
+
+  const overlay = document.getElementById("overlay");
+  const sheetTitle = document.getElementById("sheetTitle");
+  const patientPanel = document.getElementById("patientPanel");
+  const closeBtn = document.getElementById("closeBtn");
+  const quickClose = document.getElementById("quickClose");
+  const zoneFace = document.getElementById("zoneFace");
+  const zoneLeg  = document.getElementById("zoneLeg");
+  const dragToken = document.getElementById("dragToken");
+
+  // bottom HUD buttons (placeholder)
+  document.querySelectorAll("[data-hud]").forEach(el => {
+    el.addEventListener("click", () => {
+      const type = el.getAttribute("data-hud");
+      flashMessage(type === "build" ? "建設（準備中）" :
+                   type === "dispatch" ? "出動（準備中）" :
+                   type === "storage" ? "倉庫（準備中）" : "研究（準備中）",
+                   1.0);
+      addLog(`HUD：${type}（デモ）`);
+    });
+  });
+
+  // =========================
+  // Helpers
+  // =========================
+  const log = [];
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+  function addLog(text){
+    log.unshift(text);
+    if(log.length > 7) log.pop();
+    logEl.innerHTML = log.map(x => `• ${escapeHtml(x)}`).join("<br>");
+  }
+  function award(points, reason){
+    state.score = Math.max(0, state.score + points);
+    scorePill.textContent = `Score: ${state.score}`;
+    const sign = points > 0 ? "+" : "";
+    addLog(`${sign}${points}：${reason}`);
+  }
+  function setStatus(s){ state.status = s; statusText.textContent = s; }
+  function setTarget(name){ targetPill.textContent = `Target: ${name || "—"}`; }
+  function updateRes(){
+    resStaff.textContent = `人員 ${state.staff}`;
+    resSup.textContent = `資器材 ${state.supplies}`;
+    resFuel.textContent = `燃料 ${state.fuel}`;
+  }
+  function flashMessage(msg, seconds=1.2){
+    state.message = msg;
+    state.msgT = seconds;
+  }
+
+  // =========================
+  // State
+  // =========================
+  const state = {
+    score: 0,
+    status: "出動中",
+    target: null,
+    message: "",
+    msgT: 0,
+    overlayOpen: false,
+    selectedPatientId: null,
+    staff: 2,
+    supplies: 6,
+    fuel: 4,
+    patientFlags: {} // id -> { bleeding:false, o2:false }
+  };
+
+  // =========================
+  // World
+  // =========================
+  const player = {
+    x: 180, y: 260, r: 14,
+    speed: 220,
+    tx: 180, ty: 260,
+    moving: false
+  };
+
+  const patients = [
+    {
+      id:"A", name:"患者A（成人男性）",
+      x: 520, y: 260, r: 18, triage:"🔴",
+      summary:"反応：弱い／呼吸：速く浅い／右大腿の出血（多）／冷汗",
+      note:"優先：止血→呼吸支援（最小手順）"
+    },
+    {
+      id:"B", name:"患者B（成人女性）",
+      x: 600, y: 330, r: 16, triage:"🟡",
+      summary:"会話可能／出血（中）／呼吸は安定",
+      note:"最低限：止血＋声かけ（次段）"
+    },
+    {
+      id:"C", name:"患者C（小児）",
+      x: 650, y: 220, r: 14, triage:"🟢",
+      summary:"歩ける／擦過傷／不安が強い",
+      note:"最低限：安全確保＋安心（次段）"
+    }
+  ];
+  patients.forEach(p => state.patientFlags[p.id] = { bleeding:false, o2:false });
+
+  const props = [
+    { type:"car", x: 560, y: 240, w: 92, h: 44, rot: -0.22 },
+    { type:"bike", x: 495, y: 290, w: 44, h: 18, rot: 0.35 },
+    { type:"cone", x: 530, y: 205, r: 8 },
+    { type:"cone", x: 620, y: 290, r: 8 },
+  ];
+
+  const INTERACT_DIST = 70;
+
+  // Camera micro-drift for "cinematic" feel
+  const cam = { x:0, y:0 };
+
+  // =========================
+  // Atmosphere (rain/fog/particles)
+  // =========================
+  const rain = Array.from({length: 180}, () => ({
+    x: Math.random()*1000,
+    y: Math.random()*800,
+    vx: -30 - Math.random()*30,
+    vy: 520 + Math.random()*280,
+    len: 10 + Math.random()*14
+  }));
+
+  const motes = Array.from({length: 60}, () => ({
+    x: Math.random()*1000,
+    y: Math.random()*800,
+    vx: -8 + Math.random()*16,
+    vy: -10 + Math.random()*8,
+    r: 0.6 + Math.random()*1.4,
+    a: 0.06 + Math.random()*0.12
+  }));
+
+  // =========================
+  // Input: tap move + patient tap
+  // =========================
+  function getPointerPos(e){
+    const rect = canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
+  }
+  function findPatientAt(x,y){
+    for(const p of patients){
+      const dx = x - p.x, dy = y - p.y;
+      if(Math.hypot(dx,dy) <= p.r + 10) return p;
+    }
+    return null;
+  }
+  function setMoveTarget(x,y){
+    player.tx = x; player.ty = y;
+    player.moving = true;
+    setTarget("移動");
+  }
+  function tryOpenPatient(p){
+    const d = Math.hypot(player.x - p.x, player.y - p.y);
+    if(d > INTERACT_DIST){
+      flashMessage("近づいてください", 1.0);
+      return;
+    }
+    openOverlay(p);
+  }
+  function onTap(x,y){
+    if(state.overlayOpen) return;
+    const p = findPatientAt(x,y);
+    if(p){
+      setTarget(p.name);
+      tryOpenPatient(p);
+      return;
+    }
+    setMoveTarget(x,y);
+  }
+
+  let pointerDown = false;
+  canvas.addEventListener("pointerdown", () => { pointerDown = true; });
+  canvas.addEventListener("pointerup", (e) => {
+    if(!pointerDown) return;
+    pointerDown = false;
+
+    // do not move when tapping bottom HUD
+    const hudRect = document.getElementById("bottomHUD").getBoundingClientRect();
+    if(e.clientY >= hudRect.top) return;
+
+    const {x,y} = getPointerPos(e);
+    onTap(x,y);
+  });
+
+  // =========================
+  // Overlay + drag treatment
+  // =========================
+  closeBtn.addEventListener("click", () => closeOverlay());
+  quickClose.addEventListener("click", () => closeOverlay());
+
+  function renderPatientPanel(patient){
+    const f = state.patientFlags[patient.id];
+    patientPanel.innerHTML = `
+      <div><b>所見</b><br>${escapeHtml(patient.summary)}</div>
+      <div style="margin-top:10px"><b>メモ</b><br><span style="color:rgba(255,255,255,0.65)">${escapeHtml(patient.note)}</span></div>
+      <div style="margin-top:12px">
+        <span class="pill">止血：${f.bleeding ? "済" : "未"}</span>
+        <span class="pill" style="margin-left:6px">呼吸支援：${f.o2 ? "済" : "未"}</span>
+      </div>
+    `;
+  }
+  function refreshZones(){
+    const id = state.selectedPatientId;
+    if(!id) return;
+    const f = state.patientFlags[id];
+    zoneLeg.classList.toggle("done", !!f.bleeding);
+    zoneFace.classList.toggle("done", !!f.o2);
+  }
+  function clearZoneActive(){
+    zoneLeg.classList.remove("active");
+    zoneFace.classList.remove("active");
+  }
+
+  function openOverlay(patient){
+    state.overlayOpen = true;
+    state.selectedPatientId = patient.id;
+    overlay.classList.add("show");
+    overlay.setAttribute("aria-hidden", "false");
+    sheetTitle.textContent = `${patient.triage} ${patient.name}`;
+    setStatus("処置中");
+    setTarget(patient.name);
+
+    // Zones: A has both, others simplified (kept for demo)
+    if(patient.id === "A"){
+      zoneLeg.style.display = "flex";
+      zoneFace.style.display = "flex";
+      zoneLeg.textContent = "LEG";
+      zoneFace.textContent = "FACE";
+    } else if(patient.id === "B"){
+      zoneLeg.style.display = "flex";
+      zoneFace.style.display = "none";
+      zoneLeg.textContent = "ARM/LEG";
+    } else {
+      zoneLeg.style.display = "flex";
+      zoneFace.style.display = "none";
+      zoneLeg.textContent = "SAFE";
+    }
+
+    renderPatientPanel(patient);
+    refreshZones();
+  }
+
+  function closeOverlay(){
+    state.overlayOpen = false;
+    state.selectedPatientId = null;
+    overlay.classList.remove("show");
+    overlay.setAttribute("aria-hidden", "true");
+    setStatus("現場対応");
+    setTarget(null);
+    clearZoneActive();
+    hideDragToken();
+  }
+
+  // Drag system
+  const drag = { active:false, tool:null };
+
+  function showDragToken(tool, x, y){
+    dragToken.style.display = "block";
+    dragToken.textContent = tool === "bandage" ? "🩹 包帯" : "🫁 マスク";
+    dragToken.style.left = x + "px";
+    dragToken.style.top = y + "px";
+  }
+  function moveDragToken(x,y){
+    dragToken.style.left = x + "px";
+    dragToken.style.top = y + "px";
+  }
+  function hideDragToken(){ dragToken.style.display = "none"; }
+
+  function getZoneRects(){
+    return {
+      leg: zoneLeg.getBoundingClientRect(),
+      face: zoneFace.getBoundingClientRect()
+    };
+  }
+  function hitRect(x,y, r){
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+  function activateZoneUnderPointer(px, py){
+    clearZoneActive();
+    const {leg, face} = getZoneRects();
+    if(zoneLeg.style.display !== "none" && hitRect(px,py, leg)) zoneLeg.classList.add("active");
+    if(zoneFace.style.display !== "none" && hitRect(px,py, face)) zoneFace.classList.add("active");
+  }
+
+  function updateMissionIfNeeded(){
+    const A = state.patientFlags["A"];
+    if(A.bleeding && !A.o2){
+      missionText.textContent =
+        "① 患者A：止血 ✅\n" +
+        "② 患者A：呼吸支援（🫁ドラッグ→FACE）\n" +
+        "③ 次：搬送判断（次段で実装）";
+    }
+    if(A.bleeding && A.o2){
+      missionText.textContent =
+        "① 患者A：止血 ✅\n" +
+        "② 患者A：呼吸支援 ✅\n" +
+        "③ 次：搬送判断（次段で実装）";
+      missionPill.textContent = "JP_001 (OK)";
+    }
+  }
+
+  function applyDrop(tool, px, py){
+    const id = state.selectedPatientId;
+    if(!id) return;
+
+    const patient = patients.find(p => p.id === id);
+    const f = state.patientFlags[id];
+    const {leg, face} = getZoneRects();
+
+    const useSupply = () => {
+      if(state.supplies <= 0){
+        award(-2, "資器材不足");
+        flashMessage("資器材不足", 1.0);
+        return false;
+      }
+      state.supplies -= 1;
+      updateRes();
+      return true;
+    };
+
+    if(tool === "bandage"){
+      if(zoneLeg.style.display !== "none" && hitRect(px,py, leg)){
+        if(id === "C"){
+          award(-2, "患者C：不要（デモ）");
+          flashMessage("この患者には不要", 0.9);
+          return;
+        }
+        if(f.bleeding){
+          award(0, `${patient.name}：止血は既に済`);
+          flashMessage("既に済", 0.7);
+          return;
+        }
+        if(!useSupply()) return;
+        f.bleeding = true;
+        award(+15, `${patient.name}：止血（包帯）`);
+        flashMessage("止血成功", 1.0);
+        renderPatientPanel(patient);
+        refreshZones();
+        updateMissionIfNeeded();
+        return;
+      }
+      award(0, "包帯：ゾーン外");
+      flashMessage("LEGにドロップ", 0.8);
+      return;
+    }
+
+    if(tool === "mask"){
+      if(id !== "A"){
+        award(-2, `${patient.name}：対象外（デモ）`);
+        flashMessage("対象外", 0.8);
+        return;
+      }
+      if(zoneFace.style.display !== "none" && hitRect(px,py, face)){
+        if(f.o2){
+          award(0, `${patient.name}：呼吸支援は既に済`);
+          flashMessage("既に済", 0.7);
+          return;
+        }
+        if(!useSupply()) return;
+        f.o2 = true;
+        award(+12, `${patient.name}：呼吸支援（マスク）`);
+        flashMessage("呼吸支援成功", 1.0);
+        renderPatientPanel(patient);
+        refreshZones();
+        updateMissionIfNeeded();
+        return;
+      }
+      award(0, "マスク：ゾーン外");
+      flashMessage("FACEにドロップ", 0.8);
+      return;
+    }
+  }
+
+  document.querySelectorAll("[data-tool]").forEach(toolEl => {
+    toolEl.addEventListener("pointerdown", (e) => {
+      if(!state.overlayOpen) return;
+      drag.active = true;
+      drag.tool = toolEl.getAttribute("data-tool");
+      showDragToken(drag.tool, e.clientX, e.clientY);
+      activateZoneUnderPointer(e.clientX, e.clientY);
+      toolEl.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    toolEl.addEventListener("pointermove", (e) => {
+      if(!drag.active) return;
+      moveDragToken(e.clientX, e.clientY);
+      activateZoneUnderPointer(e.clientX, e.clientY);
+      e.preventDefault();
+    });
+    toolEl.addEventListener("pointerup", (e) => {
+      if(!drag.active) return;
+      drag.active = false;
+      moveDragToken(e.clientX, e.clientY);
+      applyDrop(drag.tool, e.clientX, e.clientY);
+      clearZoneActive();
+      hideDragToken();
+      drag.tool = null;
+      e.preventDefault();
+    });
+    toolEl.addEventListener("pointercancel", () => {
+      drag.active = false;
+      drag.tool = null;
+      clearZoneActive();
+      hideDragToken();
+    });
+  });
+
+  // =========================
+  // Draw helpers
+  // =========================
+  function rr(c, x,y,w,h,r){
+    r = Math.min(r, w/2, h/2);
+    c.beginPath();
+    c.moveTo(x+r, y);
+    c.arcTo(x+w, y, x+w, y+h, r);
+    c.arcTo(x+w, y+h, x, y+h, r);
+    c.arcTo(x, y+h, x, y, r);
+    c.arcTo(x, y, x+w, y, r);
+    c.closePath();
+  }
+
+  function textShadow(c, t, x, y, size, col){
+    c.font = `900 ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    c.fillStyle = "rgba(0,0,0,0.55)";
+    c.fillText(t, x+1.5, y+1.5);
+    c.fillStyle = col;
+    c.fillText(t, x, y);
+  }
+
+  // =========================
+  // HD-2D-ish Rendering Pipeline
+  // 1) render scene to offscreen
+  // 2) draw blurred version
+  // 3) punch sharp focus circle around player
+  // 4) color grading + vignette + rays + rain/fog
+  // =========================
+  function renderSceneTo(s){
+    const W = canvas.clientWidth;
+    const H = canvas.clientHeight;
+
+    s.clearRect(0,0,W,H);
+
+    // camera drift
+    const t = timeSec;
+    cam.x = Math.sin(t*0.45)*1.2;
+    cam.y = Math.cos(t*0.35)*1.0;
+
+    s.save();
+    s.translate(cam.x, cam.y);
+
+    // parallax background (distant)
+    s.fillStyle = "rgba(120,180,160,0.07)";
+    s.fillRect(0,0,W,H);
+
+    // Distant shapes for depth (soft silhouettes)
+    for(let i=0;i<7;i++){
+      const px = (i*180 + (t*8)) % (W+260) - 130;
+      const py = 40 + (i%3)*28;
+      s.fillStyle = "rgba(255,255,255,0.04)";
+      rr(s, px, py, 180, 44, 18);
+      s.fill();
+    }
+
+    // Midground: road intersection (crisper)
+    // grass
+    s.fillStyle = "rgba(120,255,180,0.05)";
+    s.fillRect(0,0,W, H*0.42);
+    s.fillRect(0,H*0.60,W,H*0.40);
+    s.fillRect(0,0,W*0.45,H);
+    s.fillRect(W*0.63,0,W*0.37,H);
+
+    // asphalt
+    s.fillStyle = "rgba(255,255,255,0.06)";
+    s.fillRect(0,0,W,H);
+
+    // roads
+    s.fillStyle = "rgba(0,0,0,0.40)";
+    s.fillRect(0, H*0.42, W, H*0.18);
+    s.fillRect(W*0.45, 0, W*0.18, H);
+
+    // lane lines
+    s.strokeStyle = "rgba(255,255,255,0.12)";
+    s.lineWidth = 2;
+    s.setLineDash([10, 10]);
+    s.beginPath();
+    s.moveTo(0, H*0.51); s.lineTo(W, H*0.51);
+    s.moveTo(W*0.54, 0); s.lineTo(W*0.54, H);
+    s.stroke();
+    s.setLineDash([]);
+
+    // props
+    for(const p of props){
+      if(p.type === "car"){
+        s.save();
+        s.translate(p.x, p.y);
+        s.rotate(p.rot);
+        rr(s, -p.w/2, -p.h/2, p.w, p.h, 10);
+        s.fillStyle = "rgba(255,255,255,0.11)";
+        s.fill();
+        s.strokeStyle = "rgba(255,255,255,0.18)";
+        s.stroke();
+        rr(s, -p.w/2+10, -p.h/2+8, p.w-20, p.h-16, 8);
+        s.fillStyle = "rgba(0,0,0,0.30)";
+        s.fill();
+        s.restore();
+      }
+      if(p.type === "bike"){
+        s.save();
+        s.translate(p.x, p.y);
+        s.rotate(p.rot);
+        rr(s, -p.w/2, -p.h/2, p.w, p.h, 8);
+        s.fillStyle = "rgba(255,255,255,0.08)";
+        s.fill();
+        s.strokeStyle = "rgba(255,255,255,0.14)";
+        s.stroke();
+        s.restore();
+      }
+      if(p.type === "cone"){
+        s.beginPath();
+        s.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        s.fillStyle = "rgba(255,220,120,0.16)";
+        s.fill();
+        s.strokeStyle = "rgba(255,220,120,0.26)";
+        s.stroke();
+      }
+    }
+
+    // patients
+    for(const p of patients){
+      const flags = state.patientFlags[p.id];
+      const d = Math.hypot(player.x - p.x, player.y - p.y);
+      if(d <= INTERACT_DIST){
+        s.beginPath();
+        s.arc(p.x, p.y, p.r + 14, 0, Math.PI*2);
+        s.fillStyle = "rgba(120,255,180,0.07)";
+        s.fill();
+      }
+      s.beginPath();
+      s.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      s.fillStyle = "rgba(255,255,255,0.10)";
+      s.fill();
+      s.strokeStyle = "rgba(255,255,255,0.18)";
+      s.stroke();
+
+      textShadow(s, p.triage, p.x - 8, p.y + 5, 14, "rgba(255,255,255,0.86)");
+
+      const treated = (flags.bleeding?1:0)+(flags.o2?1:0);
+      if(treated > 0){
+        s.beginPath();
+        s.arc(p.x + p.r - 4, p.y - p.r + 4, 7, 0, Math.PI*2);
+        s.fillStyle = "rgba(120,255,180,0.18)";
+        s.fill();
+        s.strokeStyle = "rgba(120,255,180,0.32)";
+        s.stroke();
+      }
+
+      s.fillStyle = "rgba(0,0,0,0.35)";
+      rr(s, p.x - 60, p.y + p.r + 10, 120, 24, 10);
+      s.fill();
+      s.strokeStyle = "rgba(255,255,255,0.10)";
+      s.stroke();
+      textShadow(s, p.id, p.x - 5, p.y + p.r + 28, 12, "rgba(255,255,255,0.85)");
+    }
+
+    // player
+    s.beginPath();
+    s.ellipse(player.x, player.y + player.r + 7, 14, 6, 0, 0, Math.PI*2);
+    s.fillStyle = "rgba(0,0,0,0.40)";
+    s.fill();
+
+    s.beginPath();
+    s.arc(player.x, player.y, player.r, 0, Math.PI*2);
+    s.fillStyle = "rgba(255,255,255,0.16)";
+    s.fill();
+    s.strokeStyle = "rgba(255,255,255,0.22)";
+    s.stroke();
+    textShadow(s, "✚", player.x - 6, player.y + 6, 14, "rgba(255,255,255,0.88)");
+
+    if(player.moving){
+      s.beginPath();
+      s.arc(player.tx, player.ty, 10, 0, Math.PI*2);
+      s.strokeStyle = "rgba(120,200,255,0.45)";
+      s.lineWidth = 2;
+      s.stroke();
+      s.beginPath();
+      s.arc(player.tx, player.ty, 18, 0, Math.PI*2);
+      s.strokeStyle = "rgba(120,200,255,0.18)";
+      s.stroke();
+      s.lineWidth = 1;
+    }
+
+    s.restore();
+  }
+
+  function drawGodRays(c){
+    // simple diagonal light shafts
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    c.save();
+    c.globalCompositeOperation = "screen";
+    c.globalAlpha = 0.14;
+    c.translate(-W*0.15, -H*0.10);
+    c.rotate(-0.35);
+
+    for(let i=0;i<9;i++){
+      const x = i*170 + (timeSec*18)%170;
+      const grad = c.createLinearGradient(x, 0, x+140, H);
+      grad.addColorStop(0, "rgba(255,255,255,0)");
+      grad.addColorStop(0.5, "rgba(255,255,255,0.25)");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      c.fillStyle = grad;
+      c.fillRect(x, 0, 140, H*1.2);
+    }
+    c.restore();
+    c.globalCompositeOperation = "source-over";
+    c.globalAlpha = 1;
+  }
+
+  function drawRainAndFog(c){
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+
+    // rain
+    c.save();
+    c.globalAlpha = 0.26;
+    c.strokeStyle = "rgba(180,220,255,0.55)";
+    c.lineWidth = 1;
+
+    for(const r of rain){
+      const x = (r.x % W);
+      const y = (r.y % H);
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + r.vx*0.03, y + r.len);
+      c.stroke();
+    }
+    c.restore();
+
+    // fog overlay
+    c.save();
+    const fog = c.createRadialGradient(W*0.45, H*0.52, 120, W*0.55, H*0.52, Math.max(W,H)*0.75);
+    fog.addColorStop(0, "rgba(255,255,255,0.03)");
+    fog.addColorStop(1, "rgba(0,0,0,0.18)");
+    c.fillStyle = fog;
+    c.fillRect(0,0,W,H);
+    c.restore();
+
+    // motes
+    c.save();
+    c.globalCompositeOperation = "screen";
+    for(const m of motes){
+      c.beginPath();
+      c.arc(m.x%W, m.y%H, m.r, 0, Math.PI*2);
+      c.fillStyle = `rgba(255,255,255,${m.a})`;
+      c.fill();
+    }
+    c.restore();
+    c.globalCompositeOperation = "source-over";
+  }
+
+  function drawVignetteAndGrade(c){
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+
+    // color grading (subtle teal/orange-ish)
+    c.save();
+    c.globalCompositeOperation = "overlay";
+    c.globalAlpha = 0.10;
+    const g = c.createLinearGradient(0,0,W,H);
+    g.addColorStop(0, "rgba(60,120,140,0.85)");
+    g.addColorStop(1, "rgba(160,110,80,0.80)");
+    c.fillStyle = g;
+    c.fillRect(0,0,W,H);
+    c.restore();
+    c.globalCompositeOperation = "source-over";
+    c.globalAlpha = 1;
+
+    // vignette
+    c.save();
+    const v = c.createRadialGradient(W*0.5, H*0.52, 80, W*0.5, H*0.52, Math.max(W,H)*0.62);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.50)");
+    c.fillStyle = v;
+    c.fillRect(0,0,W,H);
+    c.restore();
+
+    // subtle scanline
+    c.save();
+    c.globalAlpha = 0.06;
+    c.fillStyle = "rgba(255,255,255,0.08)";
+    for(let y=0;y<H;y+=4){
+      c.fillRect(0,y,W,1);
+    }
+    c.restore();
+  }
+
+  function drawMessage(c){
+    if(!state.message) return;
+    const msg = state.message;
+    const pad = 10;
+    c.save();
+    c.font = "900 13px system-ui, -apple-system, Segoe UI, sans-serif";
+    const w = c.measureText(msg).width + pad*2;
+    const x = 12;
+    const y = 12;
+
+    c.fillStyle = "rgba(0,0,0,0.50)";
+    rr(c, x, y, w, 34, 14);
+    c.fill();
+    c.strokeStyle = "rgba(255,255,255,0.10)";
+    c.stroke();
+
+    textShadow(c, msg, x + pad, y + 22, 13, "rgba(255,255,255,0.92)");
+    c.restore();
+  }
+
+  // =========================
+  // Update + render
+  // =========================
+  let last = performance.now();
+  let timeSec = 0;
+
+  function update(dt){
+    timeSec += dt;
+
+    // movement
+    if(player.moving){
+      const dx = player.tx - player.x;
+      const dy = player.ty - player.y;
+      const d = Math.hypot(dx,dy);
+      if(d < 2){
+        player.moving = false;
+        setTarget(null);
+      } else {
+        const step = player.speed * dt;
+        player.x += (dx/d) * Math.min(step, d);
+        player.y += (dy/d) * Math.min(step, d);
+      }
+    }
+
+    // message timer
+    if(state.msgT > 0){
+      state.msgT -= dt;
+      if(state.msgT <= 0){
+        state.message = "";
+        state.msgT = 0;
+      }
+    }
+
+    // rain + motes motion (parallax feel)
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    for(const r of rain){
+      r.x += r.vx * dt;
+      r.y += r.vy * dt;
+      if(r.y > H + 40){ r.y = -40; r.x = Math.random()*W; }
+      if(r.x < -80){ r.x = W + 80; }
+    }
+    for(const m of motes){
+      m.x += m.vx * dt;
+      m.y += m.vy * dt;
+      if(m.x < -20) m.x = W + 20;
+      if(m.x > W + 20) m.x = -20;
+      if(m.y < -20) m.y = H + 20;
+      if(m.y > H + 20) m.y = -20;
+    }
+  }
+
+  function render(){
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+
+    // 1) render base scene into offscreen
+    renderSceneTo(sctx);
+
+    // 2) draw blurred full scene
+    ctx.save();
+    ctx.clearRect(0,0,W,H);
+    ctx.filter = "blur(5px) contrast(1.05) saturate(1.05)";
+    ctx.drawImage(scene, 0, 0, W, H);
+    ctx.restore();
+
+    // 3) punch sharp focus around player (faux DOF)
+    ctx.save();
+    const focusR = 170; // focus radius
+    const gx = player.x + cam.x;
+    const gy = player.y + cam.y;
+    ctx.beginPath();
+    ctx.arc(gx, gy, focusR, 0, Math.PI*2);
+    ctx.clip();
+    ctx.filter = "none";
+    ctx.drawImage(scene, 0, 0, W, H);
+    ctx.restore();
+
+    // 4) add god rays, rain/fog, grade/vignette
+    drawGodRays(ctx);
+    drawRainAndFog(ctx);
+    drawVignetteAndGrade(ctx);
+
+    // 5) message bubble
+    drawMessage(ctx);
+  }
+
+  function loop(now){
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // =========================
+  // Init
+  // =========================
+  function init(){
+    resize();
+    updateRes();
+    setStatus("現場到着");
+    scorePill.textContent = "Score: 0";
+    addLog("OCTOPATH風：雨/霧/光/擬似DOFで仕上げ");
+    addLog("タップ移動 → 患者タップ → ドラッグ処置");
+    addLog("患者A：🩹→LEG / 🫁→FACE");
+    requestAnimationFrame(loop);
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>

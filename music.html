@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RE:START — Suno用プロンプト生成（無料・HTML）</title>
+  <style>
+    :root { --bg:#0b0f19; --card:#121a2a; --muted:#8aa0c7; --text:#e7eefc; --accent:#6ee7ff; --danger:#ff6e8a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif;
+           background: radial-gradient(1200px 700px at 30% 10%, #142145 0%, var(--bg) 55%, #05070d 100%);
+           color: var(--text); }
+    header { padding: 20px 16px 8px; max-width: 1050px; margin: 0 auto; }
+    h1 { margin:0 0 6px; font-size: 22px; letter-spacing: .2px; }
+    .sub { color: var(--muted); font-size: 13px; }
+    main { max-width: 1050px; margin: 0 auto; padding: 12px 16px 30px; display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 920px) { main { grid-template-columns: 1.1fr .9fr; } }
+    .card { background: color-mix(in srgb, var(--card) 92%, #000 8%); border: 1px solid rgba(255,255,255,.08);
+            border-radius: 16px; padding: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: center; }
+    label { font-size: 12px; color: var(--muted); display:block; margin: 10px 0 6px; }
+    textarea, input, select {
+      width:100%; border-radius: 12px; border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.25); color: var(--text);
+      padding: 10px 12px; outline: none;
+    }
+    textarea { min-height: 220px; resize: vertical; line-height: 1.55; }
+    .small { min-height: 110px; }
+    .btn {
+      border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
+      color: var(--text); padding: 10px 12px; border-radius: 12px; cursor: pointer;
+      display:inline-flex; gap:8px; align-items:center; font-weight: 650;
+    }
+    .btn:hover { border-color: rgba(110,231,255,.55); box-shadow: 0 0 0 3px rgba(110,231,255,.12); }
+    .btn.primary { background: rgba(110,231,255,.12); border-color: rgba(110,231,255,.55); }
+    .btn.danger { background: rgba(255,110,138,.10); border-color: rgba(255,110,138,.45); }
+    .pill { font-size: 12px; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12);
+            color: var(--muted); background: rgba(255,255,255,.03); }
+    .grid2 { display:grid; grid-template-columns: 1fr; gap:10px; }
+    @media (min-width: 560px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+    pre {
+      white-space: pre-wrap; word-wrap: break-word;
+      background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px; padding: 12px; margin: 10px 0 0; line-height: 1.5;
+      max-height: 520px; overflow:auto;
+    }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+    .ok { color: var(--accent); }
+    .toast {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: 18px; background: rgba(18,26,42,.95);
+      border: 1px solid rgba(255,255,255,.14);
+      padding: 10px 12px; border-radius: 999px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.45);
+      opacity: 0; pointer-events: none; transition: opacity .18s ease;
+      font-size: 13px;
+    }
+    .toast.show { opacity: 1; }
+    .divider { height:1px; background: rgba(255,255,255,.10); margin: 12px 0; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>RE:START — Suno用プロンプト生成（無料HTML）</h1>
+  <div class="sub">歌詞・Styleを整えて、Sunoにそのまま貼れる形に出力します（ローカルで動作／保存は端末内）。</div>
+</header>
+
+<main>
+  <!-- Left: Inputs -->
+  <section class="card">
+    <div class="row">
+      <span class="pill">Mode: Custom</span>
+      <span class="pill">Voice: Male (High-Mid)</span>
+      <span class="pill">Feel: Modern Pop Rock / Cinematic</span>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label>Title</label>
+        <input id="title" value="RE:START" />
+      </div>
+      <div>
+        <label>Language</label>
+        <select id="lang">
+          <option value="en" selected>English</option>
+          <option value="jp">Japanese</option>
+          <option value="mix">JP + EN (Mixed)</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Lyrics（ここを編集）</label>
+    <textarea id="lyrics"></textarea>
+
+    <label>Style（ここが命：そのまま使う/調整する）</label>
+    <textarea id="style" class="small"></textarea>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <button class="btn primary" id="build">プロンプト生成</button>
+      <button class="btn" id="copyAll">全文コピー</button>
+      <button class="btn" id="copyLyrics">歌詞だけコピー</button>
+      <button class="btn" id="copyStyle">Styleだけコピー</button>
+      <button class="btn danger" id="reset">初期化</button>
+    </div>
+
+    <div class="hint">
+      ✅ Sunoでは「実在アーティスト名」「声真似」の指定は避けて、<span class="ok">質感（modern / cinematic / anthem）</span>で寄せるのが安全です。
+    </div>
+  </section>
+
+  <!-- Right: Output -->
+  <aside class="card">
+    <div class="row" style="justify-content: space-between;">
+      <div>
+        <div style="font-weight: 750;">出力（Sunoに貼る用）</div>
+        <div class="hint">下のテキストをそのまま貼れます。</div>
+      </div>
+      <span class="pill mono" id="status">ready</span>
+    </div>
+
+    <pre id="output" class="mono"></pre>
+
+    <div class="hint">
+      使い方：Suno → Create → Custom Mode → Lyricsへ貼り付け → Styleへ貼り付け → Generate
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  const defaults = {
+    title: "RE:START",
+    lyrics_en: `In a city way too quiet
+Noise is telling me the truth
+Every answer comes too late
+Chasing what I never knew
+
+Scrolling through the future
+Leaving yesterday behind
+Holding onto broken hope
+Still pretending I’m alright
+
+Even if I got it wrong
+My heart is beating on
+They say it’s too late now
+But who decided that?
+
+We are still alive
+Even if we break inside
+All the tears we cried
+Turn into the light
+Restart, restart
+This is where we begin
+I’ll outrun the version of me
+I used to be
+
+I don’t believe in perfect lines
+But I can’t let go of dreams
+All the fear and all the pride
+They’re all part of me
+
+Every loss I ever had
+Taught me how to stand
+So today is not a waste
+I’m still breathing here
+
+We are still alive
+Let me hear you shout it out
+This world is bigger than
+All the doubt
+Restart, restart
+This is not the end
+This heartbeat is the answer
+I defend
+
+I made it here by falling down
+By breaking every rule
+A flawless life is meaningless
+If it never bleeds, never moves
+
+We are still alive
+Living in the now
+All the pain we lost
+Made us stronger somehow
+Restart, restart
+Over and over again
+The future’s calling us
+So let it begin
+
+Break it, build it, start again
+We’re still alive`,
+    lyrics_jp: `静かすぎる街で
+ノイズだけが truth を語る
+正解はいつだって
+後から追いかけてくる
+
+スクロールする未来
+置き去りの yesterday
+壊れかけの hope を
+まだ疑えずにいる
+
+間違いだらけでも
+心臓は止まらない
+「もう遅い」なんて
+誰が決めた？
+
+We are still alive
+壊れても進め
+涙の跡は
+光に変わる
+Restart, Restart
+ここからでいい
+昨日までの僕を
+追い越していけ
+
+理想論は嫌い
+でも夢は捨てられない
+強がる理由も
+弱さも 全部 real
+
+失うたびに
+何かを得てきた
+それなら今日も
+無駄じゃない
+
+We are still alive
+声を上げろ
+世界はきっと
+想像より広い
+Restart, Restart
+終わりじゃない
+この鼓動が
+答えだろ？
+
+間違ってきたから
+ここまで来たんだ
+完璧な人生に
+価値はないだろ？
+
+We are still alive
+今を生きろ
+失った分だけ
+強くなれる
+Restart, Restart
+何度だって
+未来は
+僕らを待ってる
+
+Break it, build it, start again
+We’re still alive`,
+    lyrics_mix: `静かすぎる街で
+Noise is telling me the truth
+正解はいつだって
+Afterward chasing after you
+
+スクロールする未来
+Leaving yesterday behind
+壊れかけの hope を
+Still pretending I’m alright
+
+We are still alive
+壊れても進め
+All the tears we cried
+Turn into the light
+Restart, Restart
+ここからでいい
+I’ll outrun the version of me
+I used to be`,
+    style: `Modern pop rock anthem,
+male vocal, high-mid range,
+uplifting and emotional,
+cinematic scale,
+stadium-ready chorus,
+band sound with synth layers,
+dynamic build-up from soft verses to explosive chorus,
+contemporary global pop production,
+hopeful, energetic, forward-looking`
+  };
+
+  function toast(msg) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 1100);
+  }
+
+  function setDefaults() {
+    $("title").value = defaults.title;
+    $("style").value = defaults.style;
+    const lang = $("lang").value;
+    $("lyrics").value = lang === "jp" ? defaults.lyrics_jp : (lang === "mix" ? defaults.lyrics_mix : defaults.lyrics_en);
+  }
+
+  function buildPrompt() {
+    const title = $("title").value.trim() || "Untitled";
+    const lyrics = $("lyrics").value.trim();
+    const style = $("style").value.trim();
+
+    const block = [
+      `TITLE: ${title}`,
+      `MODE: Custom`,
+      `VOICE: Male (High-Mid)`,
+      ``,
+      `LYRICS:`,
+      lyrics || "(paste lyrics here)",
+      ``,
+      `STYLE:`,
+      style || "(paste style here)"
+    ].join("\n");
+
+    $("output").textContent = block;
+    $("status").textContent = "built";
+    localStorage.setItem("restart_title", $("title").value);
+    localStorage.setItem("restart_lang", $("lang").value);
+    localStorage.setItem("restart_lyrics", $("lyrics").value);
+    localStorage.setItem("restart_style", $("style").value);
+    toast("プロンプト生成しました");
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("コピーしました");
+    } catch (e) {
+      // Fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      toast("コピーしました（fallback）");
+    }
+  }
+
+  // Restore from localStorage
+  function restore() {
+    const t = localStorage.getItem("restart_title");
+    const l = localStorage.getItem("restart_lang");
+    const ly = localStorage.getItem("restart_lyrics");
+    const st = localStorage.getItem("restart_style");
+    if (l) $("lang").value = l;
+    if (t) $("title").value = t;
+    if (ly) $("lyrics").value = ly;
+    else setDefaults();
+    if (st) $("style").value = st;
+    else $("style").value = defaults.style;
+    $("output").textContent = "";
+    $("status").textContent = "ready";
+  }
+
+  $("lang").addEventListener("change", () => {
+    // If user hasn't typed custom lyrics, switch templates
+    const current = $("lyrics").value.trim();
+    const isTemplate = [defaults.lyrics_en, defaults.lyrics_jp, defaults.lyrics_mix].some(x => x.trim() === current);
+    if (isTemplate || current.length === 0) setDefaults();
+  });
+
+  $("build").addEventListener("click", buildPrompt);
+
+  $("copyAll").addEventListener("click", () => copyText($("output").textContent || ""));
+  $("copyLyrics").addEventListener("click", () => copyText($("lyrics").value || ""));
+  $("copyStyle").addEventListener("click", () => copyText($("style").value || ""));
+
+  $("reset").addEventListener("click", () => {
+    localStorage.removeItem("restart_title");
+    localStorage.removeItem("restart_lang");
+    localStorage.removeItem("restart_lyrics");
+    localStorage.removeItem("restart_style");
+    setDefaults();
+    $("output").textContent = "";
+    $("status").textContent = "ready";
+    toast("初期化しました");
+  });
+
+  restore();
+  // Build once initially for convenience
+  buildPrompt();
+</script>
+</body>
+</html>
